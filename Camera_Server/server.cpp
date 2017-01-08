@@ -1,0 +1,149 @@
+#include <stdio.h>
+#include <Winsock2.h>
+#include <opencv/cv.h>  
+#include <opencv/cxcore.h>  
+#include <opencv/highgui.h>  
+#pragma comment(lib, "ws2_32.lib")  
+using namespace cv;
+
+void main()
+{
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+	const int blocksize=28880;
+	//定义包结构  
+	struct recvbuf //包格式  
+	{  
+		char buf[blocksize]; //存放数据的变量  
+		int flag; //标志  
+	};  
+	struct recvbuf data;  
+	wVersionRequested = MAKEWORD(2, 0);
+
+	err = WSAStartup(wVersionRequested, &wsaData);
+	if(err != 0){
+		return;
+	}
+
+	if(LOBYTE( wsaData.wVersion ) != 2 || HIBYTE( wsaData.wVersion ) != 0){
+		WSACleanup();
+		return;
+	}
+	SOCKET sockSrv = socket(AF_INET,SOCK_DGRAM,0);
+	if(INVALID_SOCKET == sockSrv){
+		printf("Socket 创建失败，Exit!");
+		return;
+	}
+
+	SOCKADDR_IN addrSrv;
+	addrSrv.sin_addr.S_un.S_addr=htonl(INADDR_ANY);
+	addrSrv.sin_family=AF_INET;
+	addrSrv.sin_port=htons(6000);
+
+	if(-1==bind(sockSrv,(SOCKADDR*)&addrSrv,sizeof(SOCKADDR))){
+		printf("Server bind error!\n");
+		return;
+	}
+
+	//listen(sockSrv,5);
+
+	SOCKADDR_IN addrClient;
+	int len=sizeof(SOCKADDR);
+
+	//声明IplImage指针  
+	IplImage* pFrame = NULL;  
+	//pFrame->imageSize=
+	//获取摄像头  
+	//CvCapture* pCapture = cvCreateCameraCapture(0);  
+
+	//创建窗口  
+	cvNamedWindow("video", 1);  
+
+	//显示视屏  
+	/* while(1)  
+	{  
+		pFrame=cvQueryFrame( pCapture);  
+		if(!pFrame)break;  
+		cvShowImage("video",pFrame);  
+		char c=cvWaitKey(33);  
+		if(c==27)break;  
+	}  
+	*/
+	//SOCKET sockConn=accept(sockSrv,(SOCKADDR*)&addrClient,&len);
+
+	int nRecvBuf=1024*1024*10;//接收缓存10M  
+	setsockopt(sockSrv, SOL_SOCKET, SO_RCVBUF,(const char*)&nRecvBuf, sizeof(int));
+	int COUNT=0;
+	char img[blocksize*32]={0};
+	int n;
+
+	//Mat L();
+
+	//long nRows = .rows * M.channels();  //channels()也是Mat中一个常用的函数，用于获取通道数（RGB=3，灰度=1）
+	//long nCols = M.cols;
+	//uchar *p = M.data;  //数据指针
+	//printf("sadfsadf");
+	while(1)  
+	{     
+		//memset(data.buf, 0, sizeof(char)*blocksize);
+		for( int i=0;i<32;i++)           
+		{  
+			//Sleep(1000);
+			n=recvfrom(sockSrv,(char *)(&data),blocksize+4,0,(SOCKADDR*)&addrClient,&len);  
+			//Sleep(1000);
+			printf("%d\n",n);
+			COUNT=COUNT+data.flag;  
+			for(int k=0;k<blocksize;k++)  
+			{
+				img[i*blocksize+k]=data.buf[k];  
+			}  
+
+			if(data.flag==2)  //data.flag==2是一帧中的最后一个数据块  
+			{   
+				if(COUNT==33)  
+				{
+					//Mat L(480,640, CV_8UC3, img);
+
+					//if(M.isContinuous())
+					//{
+					//	  nCols *= nRows;
+					//    for (long i=0; i < nCols; i++) {
+					//		  *p++ = ; // 像素赋值或读取操作
+					//    }   
+					//}
+
+					//namedWindow("Lena.jpg", CV_WINDOW_AUTOSIZE); 
+					//imshow("Lena.jpg", L);
+					//waitKey(33);
+
+
+					pFrame = cvCreateImageHeader(cvSize(640,480),IPL_DEPTH_8U,3);  
+
+					cvSetData(pFrame,img,640*3);//由收到的数据建立一帧图像  
+					cvShowImage("video",pFrame);
+					char c=cvWaitKey(1000/30);  
+					if(c==27)break; 
+					printf("frame!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+				}  
+				else   
+				{  
+					COUNT=0;  
+					i=-1;  
+				}  
+				// j++;  
+			}  
+
+		}      
+	}  
+
+	/*
+	while(1)
+	{
+	recv(sockConn,pFrame->imageData,pFrame->imageSize,0);
+	if(!pFrame)break;  
+	cvShowImage("video",pFrame);
+	}*/
+	//closesocket(sockConn);
+	cvDestroyWindow("video");  
+}
